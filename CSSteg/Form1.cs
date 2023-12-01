@@ -1,11 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace CSSteg
@@ -17,13 +11,13 @@ namespace CSSteg
             InitializeComponent();
         }
 
-        public enum State
+        private enum State
         {
             Hiding,
             Filling_With_Zeros
         };
 
-        public Bitmap EncryptText(string text, Bitmap bmp) //encrypting text in image
+        private Bitmap EncryptText(string text, Bitmap bmp) //encrypting text in image
         {
             State state = State.Hiding; //initially, we'll be hiding characters in the image
             int charIndex = 0; //index of the character that is being hidden
@@ -75,8 +69,6 @@ namespace CSSteg
                             else
                             {
                                 charValue = text[charIndex++]; //move to the next character and process again
-                                logBox.Text += charValue;
-                                logBox.Text += " ";
                             }
                         }
 
@@ -146,7 +138,7 @@ namespace CSSteg
             return bmp;
         }
 
-        public string DecryptText(Bitmap bmp) //decrypting text from the image
+        private string DecryptText(Bitmap bmp) //decrypting text from the image
         {
             int colorUnitIndex = 0;
             int charValue = 0;
@@ -201,7 +193,7 @@ namespace CSSteg
                         if (colorUnitIndex % 12 == 0)
                         {
                             //reverse since each time the process occurs on the right (for simplicity)
-                            charValue = reverseBits12(charValue);
+                            charValue = reverseBits(charValue);
 
                             //can only be 0 if it is the stop character (the 8 zeros)
                             if (charValue == 0)
@@ -211,8 +203,6 @@ namespace CSSteg
 
                             //convert the character value from int to char
                             char c = (char)charValue;
-                            logBox.Text += charValue;
-                            logBox.Text += " ";
                             //add the current character to the result text
                             extractedText += c.ToString();
                         }
@@ -222,17 +212,14 @@ namespace CSSteg
             return extractedText;
         }
 
-        public static int reverseBits12(int n) //reversing bits
+        private int reverseBits(int n) //reversing bits
         {
             int result = 0;
-
             for (int i = 0; i < 12; i++)
             {
                 result = result * 2 + n % 2;
-
                 n /= 2;
             }
-
             return result;
         }
 
@@ -241,14 +228,23 @@ namespace CSSteg
             if (openFileDialog1.ShowDialog() == DialogResult.OK)
             {
                 pictureBox1.Image = new Bitmap(openFileDialog1.FileName);
+                logBox.Text = "Opened file " + openFileDialog1.FileName + "\r\n" + logBox.Text;
             }
         }
         private void button2_Click(object sender, EventArgs e) //encrypt text button
         {
             string text = textBox1.Text;
-            Bitmap image = new Bitmap(pictureBox1.Image);
-            Bitmap result = EncryptText(text, image);
-            pictureBox1.Image = result;
+            if(text == "")
+            {
+                logBox.Text = "Enter text that you want to encrypt\r\n" + logBox.Text;
+            }
+            else
+            {
+                Bitmap image = new Bitmap(pictureBox1.Image);
+                Bitmap result = EncryptText(text, image);
+                pictureBox1.Image = result;
+                logBox.Text = "Text encrypted successfully\r\n" + logBox.Text;
+            }
         }
 
         private void button3_Click(object sender, EventArgs e) //save image button
@@ -257,13 +253,22 @@ namespace CSSteg
             {
                 string filename = saveFileDialog1.FileName;
                 pictureBox1.Image.Save(filename);
+                logBox.Text = "Saved file " + filename + "\r\n" + logBox.Text;
             }
         }
 
         private void button4_Click(object sender, EventArgs e) //decrypt text button
         {
             string result = DecryptText(new Bitmap(pictureBox1.Image));
-            textBox1.Text = result;
+            if(result == "")
+            {
+                logBox.Text = "Image does not contain encrypted text\r\n" + logBox.Text;
+            }
+            else
+            {
+                textBox1.Text = result;
+                logBox.Text = "Text decrypted successfully\r\n" + logBox.Text;
+            }
         }
     }
 }
