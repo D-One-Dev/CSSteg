@@ -23,7 +23,7 @@ namespace CSSteg
             Filling_With_Zeros
         };
 
-        public Bitmap EncryptText(string text, Bitmap bmp)//, bool extendedMode) //encrypting text in image
+        public Bitmap EncryptText(string text, Bitmap bmp) //encrypting text in image
         {
             State state = State.Hiding; //initially, we'll be hiding characters in the image
             int charIndex = 0; //index of the character that is being hidden
@@ -32,7 +32,7 @@ namespace CSSteg
             int zeros = 0; //number of trailing zeros that have been added when finishing the process
 
             //pixel elements
-            int R = 0, G = 0, B = 0; //A = 0;
+            int R = 0, G = 0, B = 0, A = 0;
 
             for (int i = 0; i < bmp.Height; i++) //pass through the rows
             {
@@ -44,23 +44,24 @@ namespace CSSteg
                     R = pixel.R - pixel.R % 2;
                     G = pixel.G - pixel.G % 2;
                     B = pixel.B - pixel.B % 2;
-                    //A = pixel.A - pixel.A % 2;
+                    A = pixel.A - pixel.A % 2;
 
-                    //for each pixel, pass through its elements (R/G/B)
-                    for (int n = 0; n < 3; n++)
+                    //for each pixel, pass through its elements (A/R/G/B)
+                    for (int n = 0; n < 4; n++)
                     {
-                        //check if new 8 bits has been processed
-                        if (pixelElementIndex % 8 == 0)
+                        //int shift = 0;
+                        //check if new 12 bits has been processed
+                        if (pixelElementIndex % 12 == 0)
                         {
                             //check if the whole process has finished
-                            //we can say that it's finished when 8 zeros are added
-                            if (state == State.Filling_With_Zeros && zeros == 8)
+                            //we can say that it's finished when 12 zeros are added
+                            if (state == State.Filling_With_Zeros && zeros == 12)
                             {
                                 //apply the last pixel on the image
                                 //even if only a part of its elements have been affected
-                                if ((pixelElementIndex - 1) % 3 < 2)
+                                if ((pixelElementIndex - 1) % 4 < 3)
                                 {
-                                    bmp.SetPixel(j, i, Color.FromArgb(R, G, B));
+                                    bmp.SetPixel(j, i, Color.FromArgb(A, R, G, B));
                                 }
 
                                 return bmp; //return the bitmap with the text hidden in
@@ -80,7 +81,7 @@ namespace CSSteg
                         }
 
                         // check which pixel element has the turn to hide a bit in its LSB
-                        switch (pixelElementIndex % 3)
+                        switch (pixelElementIndex % 4)
                         {
                             case 0:
                                 {
@@ -92,8 +93,7 @@ namespace CSSteg
                                         recall that the LSB of the pixel element had been cleared
                                         before this operation
                                         **/
-                                        R += charValue % 2;
-
+                                        A += charValue % 2;
                                         // removes the added rightmost bit of the character
                                         // such that next time we can reach the next one
                                         charValue /= 2;
@@ -104,7 +104,7 @@ namespace CSSteg
                                 {
                                     if (state == State.Hiding)
                                     {
-                                        G += charValue % 2;
+                                        R += charValue % 2;
 
                                         charValue /= 2;
                                     }
@@ -114,12 +114,22 @@ namespace CSSteg
                                 {
                                     if (state == State.Hiding)
                                     {
+                                        G += charValue % 2;
+
+                                        charValue /= 2;
+                                    }
+                                }
+                                break;
+                            case 3:
+                                {
+                                    if (state == State.Hiding)
+                                    {
                                         B += charValue % 2;
 
                                         charValue /= 2;
                                     }
 
-                                    bmp.SetPixel(j, i, Color.FromArgb(R, G, B));
+                                    bmp.SetPixel(j, i, Color.FromArgb(A, R, G, B));
                                 }
                                 break;
                         }
@@ -128,7 +138,7 @@ namespace CSSteg
 
                         if (state == State.Filling_With_Zeros)
                         {
-                            zeros++; //increment the value of zeros until it is 8
+                            zeros++; //increment the value of zeros until it is 12
                         }
                     }
                 }
@@ -151,10 +161,10 @@ namespace CSSteg
                 {
                     Color pixel = bmp.GetPixel(j, i);
 
-                    //for each pixel, pass through its elements (R/G/B)
-                    for (int n = 0; n < 3; n++)
+                    //for each pixel, pass through its elements (A/R/G/B)
+                    for (int n = 0; n < 4; n++)
                     {
-                        switch (colorUnitIndex % 3)
+                        switch (colorUnitIndex % 4)
                         {
                             case 0:
                                 {
@@ -165,15 +175,20 @@ namespace CSSteg
                                     replace the added bit (which value is by default 0) with
                                     the LSB of the pixel element, simply by addition
                                     **/
-                                    charValue = charValue * 2 + pixel.R % 2;
+                                    charValue = charValue * 2 + pixel.A % 2;
                                 }
                                 break;
                             case 1:
                                 {
-                                    charValue = charValue * 2 + pixel.G % 2;
+                                    charValue = charValue * 2 + pixel.R % 2;
                                 }
                                 break;
                             case 2:
+                                {
+                                    charValue = charValue * 2 + pixel.G % 2;
+                                }
+                                break;
+                            case 3:
                                 {
                                     charValue = charValue * 2 + pixel.B % 2;
                                 }
@@ -182,11 +197,11 @@ namespace CSSteg
 
                         colorUnitIndex++;
 
-                        //if 8 bits has been added add the current character to the result text
-                        if (colorUnitIndex % 8 == 0)
+                        //if 12 bits has been added add the current character to the result text
+                        if (colorUnitIndex % 12 == 0)
                         {
                             //reverse since each time the process occurs on the right (for simplicity)
-                            charValue = reverseBits(charValue);
+                            charValue = reverseBits12(charValue);
 
                             //can only be 0 if it is the stop character (the 8 zeros)
                             if (charValue == 0)
@@ -196,7 +211,8 @@ namespace CSSteg
 
                             //convert the character value from int to char
                             char c = (char)charValue;
-
+                            logBox.Text += charValue;
+                            logBox.Text += " ";
                             //add the current character to the result text
                             extractedText += c.ToString();
                         }
@@ -206,11 +222,11 @@ namespace CSSteg
             return extractedText;
         }
 
-        public static int reverseBits(int n) //reversing bits
+        public static int reverseBits12(int n) //reversing bits
         {
             int result = 0;
 
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < 12; i++)
             {
                 result = result * 2 + n % 2;
 
