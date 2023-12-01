@@ -17,85 +17,65 @@ namespace CSSteg
             InitializeComponent();
         }
 
-        private void button1_Click(object sender, EventArgs e)
-        {
-            if (openFileDialog1.ShowDialog() == DialogResult.OK)
-            {
-                pictureBox1.Image = new Bitmap(openFileDialog1.FileName);
-            }
-        }
-
         public enum State
         {
             Hiding,
             Filling_With_Zeros
         };
 
-        public static Bitmap EncryptText(string text, Bitmap bmp)
+        public Bitmap EncryptText(string text, Bitmap bmp)//, bool extendedMode) //encrypting text in image
         {
-            // initially, we'll be hiding characters in the image
-            State state = State.Hiding;
+            State state = State.Hiding; //initially, we'll be hiding characters in the image
+            int charIndex = 0; //index of the character that is being hidden
+            int charValue = 0; //integer value of the character
+            long pixelElementIndex = 0; //index of the color element (R/G/B) that is currently being processed
+            int zeros = 0; //number of trailing zeros that have been added when finishing the process
 
-            // holds the index of the character that is being hidden
-            int charIndex = 0;
+            //pixel elements
+            int R = 0, G = 0, B = 0; //A = 0;
 
-            // holds the value of the character converted to integer
-            int charValue = 0;
-
-            // holds the index of the color element (R or G or B) that is currently being processed
-            long pixelElementIndex = 0;
-
-            // holds the number of trailing zeros that have been added when finishing the process
-            int zeros = 0;
-
-            // hold pixel elements
-            int R = 0, G = 0, B = 0;
-
-            // pass through the rows
-            for (int i = 0; i < bmp.Height; i++)
+            for (int i = 0; i < bmp.Height; i++) //pass through the rows
             {
-                // pass through each row
-                for (int j = 0; j < bmp.Width; j++)
+                for (int j = 0; j < bmp.Width; j++) //pass through each row
                 {
-                    // holds the pixel that is currently being processed
-                    Color pixel = bmp.GetPixel(j, i);
+                    Color pixel = bmp.GetPixel(j, i); //current pixel
 
-                    // now, clear the least significant bit (LSB) from each pixel element
+                    //clearing the least significant bit (LSB) from each pixel element
                     R = pixel.R - pixel.R % 2;
                     G = pixel.G - pixel.G % 2;
                     B = pixel.B - pixel.B % 2;
+                    //A = pixel.A - pixel.A % 2;
 
-                    // for each pixel, pass through its elements (RGB)
+                    //for each pixel, pass through its elements (R/G/B)
                     for (int n = 0; n < 3; n++)
                     {
-                        // check if new 8 bits has been processed
+                        //check if new 8 bits has been processed
                         if (pixelElementIndex % 8 == 0)
                         {
-                            // check if the whole process has finished
-                            // we can say that it's finished when 8 zeros are added
+                            //check if the whole process has finished
+                            //we can say that it's finished when 8 zeros are added
                             if (state == State.Filling_With_Zeros && zeros == 8)
                             {
-                                // apply the last pixel on the image
-                                // even if only a part of its elements have been affected
+                                //apply the last pixel on the image
+                                //even if only a part of its elements have been affected
                                 if ((pixelElementIndex - 1) % 3 < 2)
                                 {
                                     bmp.SetPixel(j, i, Color.FromArgb(R, G, B));
                                 }
 
-                                // return the bitmap with the text hidden in
-                                return bmp;
+                                return bmp; //return the bitmap with the text hidden in
                             }
 
-                            // check if all characters has been hidden
+                            //check if all characters have been hidden
                             if (charIndex >= text.Length)
                             {
-                                // start adding zeros to mark the end of the text
-                                state = State.Filling_With_Zeros;
+                                state = State.Filling_With_Zeros; //start adding zeros to mark the end of the text
                             }
                             else
                             {
-                                // move to the next character and process again
-                                charValue = text[charIndex++];
+                                charValue = text[charIndex++]; //move to the next character and process again
+                                logBox.Text += charValue;
+                                logBox.Text += " ";
                             }
                         }
 
@@ -106,11 +86,12 @@ namespace CSSteg
                                 {
                                     if (state == State.Hiding)
                                     {
-                                        // the rightmost bit in the character will be (charValue % 2)
-                                        // to put this value instead of the LSB of the pixel element
-                                        // just add it to it
-                                        // recall that the LSB of the pixel element had been cleared
-                                        // before this operation
+                                        /**
+                                        the rightmost bit in the character will be (charValue % 2)
+                                        to put this value instead of the LSB of the pixel element just add it to it
+                                        recall that the LSB of the pixel element had been cleared
+                                        before this operation
+                                        **/
                                         R += charValue % 2;
 
                                         // removes the added rightmost bit of the character
@@ -147,44 +128,43 @@ namespace CSSteg
 
                         if (state == State.Filling_With_Zeros)
                         {
-                            // increment the value of zeros until it is 8
-                            zeros++;
+                            zeros++; //increment the value of zeros until it is 8
                         }
                     }
                 }
             }
-
             return bmp;
         }
 
-        public static string DecryptText(Bitmap bmp)
+        public string DecryptText(Bitmap bmp) //decrypting text from the image
         {
             int colorUnitIndex = 0;
             int charValue = 0;
 
-            // holds the text that will be extracted from the image
-            string extractedText = String.Empty;
+            string extractedText = String.Empty; //text that will be extracted from the image
 
-            // pass through the rows
+            //pass through the rows
             for (int i = 0; i < bmp.Height; i++)
             {
-                // pass through each row
+                //pass through each row
                 for (int j = 0; j < bmp.Width; j++)
                 {
                     Color pixel = bmp.GetPixel(j, i);
 
-                    // for each pixel, pass through its elements (RGB)
+                    //for each pixel, pass through its elements (R/G/B)
                     for (int n = 0; n < 3; n++)
                     {
                         switch (colorUnitIndex % 3)
                         {
                             case 0:
                                 {
-                                    // get the LSB from the pixel element (will be pixel.R % 2)
-                                    // then add one bit to the right of the current character
-                                    // this can be done by (charValue = charValue * 2)
-                                    // replace the added bit (which value is by default 0) with
-                                    // the LSB of the pixel element, simply by addition
+                                    /**
+                                    get the LSB from the pixel element (pixel.R % 2)
+                                    then add one bit to the right of the current character
+                                    this can be done by (charValue = charValue * 2)
+                                    replace the added bit (which value is by default 0) with
+                                    the LSB of the pixel element, simply by addition
+                                    **/
                                     charValue = charValue * 2 + pixel.R % 2;
                                 }
                                 break;
@@ -202,34 +182,31 @@ namespace CSSteg
 
                         colorUnitIndex++;
 
-                        // if 8 bits has been added,
-                        // then add the current character to the result text
+                        //if 8 bits has been added add the current character to the result text
                         if (colorUnitIndex % 8 == 0)
                         {
-                            // reverse? of course, since each time the process occurs
-                            // on the right (for simplicity)
+                            //reverse since each time the process occurs on the right (for simplicity)
                             charValue = reverseBits(charValue);
 
-                            // can only be 0 if it is the stop character (the 8 zeros)
+                            //can only be 0 if it is the stop character (the 8 zeros)
                             if (charValue == 0)
                             {
                                 return extractedText;
                             }
 
-                            // convert the character value from int to char
+                            //convert the character value from int to char
                             char c = (char)charValue;
 
-                            // add the current character to the result text
+                            //add the current character to the result text
                             extractedText += c.ToString();
                         }
                     }
                 }
             }
-
             return extractedText;
         }
 
-        public static int reverseBits(int n)
+        public static int reverseBits(int n) //reversing bits
         {
             int result = 0;
 
@@ -243,7 +220,14 @@ namespace CSSteg
             return result;
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void button1_Click(object sender, EventArgs e) //open image button
+        {
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                pictureBox1.Image = new Bitmap(openFileDialog1.FileName);
+            }
+        }
+        private void button2_Click(object sender, EventArgs e) //encrypt text button
         {
             string text = textBox1.Text;
             Bitmap image = new Bitmap(pictureBox1.Image);
@@ -251,7 +235,7 @@ namespace CSSteg
             pictureBox1.Image = result;
         }
 
-        private void button3_Click(object sender, EventArgs e)
+        private void button3_Click(object sender, EventArgs e) //save image button
         {
             if(saveFileDialog1.ShowDialog() == DialogResult.OK)
             {
@@ -260,7 +244,7 @@ namespace CSSteg
             }
         }
 
-        private void button4_Click(object sender, EventArgs e)
+        private void button4_Click(object sender, EventArgs e) //decrypt text button
         {
             string result = DecryptText(new Bitmap(pictureBox1.Image));
             textBox1.Text = result;
